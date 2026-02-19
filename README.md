@@ -1,4 +1,186 @@
 AWS DIGIT HCM Infrastructure - Complete Guide
+
+
+aws-digit-infrastructure/
+├── .github/
+│   └── workflows/
+│       ├── 01-deploy-infrastructure.yml      # Main deployment + scheduled scaling
+│       ├── 02-cost-optimization.yml          # Weekly reports + budget alerts
+│       └── 03-emergency-response.yml         # Manual emergency actions
+│
+├── terraform/
+│   ├── environments/
+│   │   ├── dev/
+│   │   │   ├── main.tf
+│   │   │   ├── variables.tf
+│   │   │   ├── terraform.tfvars
+│   │   │   └── outputs.tf
+│   │   ├── uat/
+│   │   │   ├── main.tf
+│   │   │   ├── variables.tf
+│   │   │   ├── terraform.tfvars
+│   │   │   └── outputs.tf
+│   │   └── prod/
+│   │       ├── main.tf
+│   │       ├── variables.tf
+│   │       ├── terraform.tfvars
+│   │       └── outputs.tf
+│   │
+│   ├── modules/
+│   │   ├── networking/
+│   │   │   ├── main.tf
+│   │   │   ├── variables.tf
+│   │   │   └── outputs.tf
+│   │   │
+│   │   ├── eks/
+│   │   │   ├── main.tf                 # Spot instance support
+│   │   │   ├── variables.tf
+│   │   │   └── outputs.tf
+│   │   │
+│   │   ├── rds/
+│   │   │   ├── main.tf                 # Conditional replica
+│   │   │   ├── variables.tf
+│   │   │   └── outputs.tf
+│   │   │
+│   │   ├── elasticache/
+│   │   │   ├── main.tf
+│   │   │   ├── variables.tf
+│   │   │   └── outputs.tf
+│   │   │
+│   │   ├── msk/
+│   │   │   ├── main.tf                 # Dynamic retention
+│   │   │   ├── variables.tf
+│   │   │   └── outputs.tf
+│   │   │
+│   │   ├── ec2/
+│   │   │   ├── main.tf
+│   │   │   ├── variables.tf
+│   │   │   └── outputs.tf
+│   │   │
+│   │   ├── loadbalancer/
+│   │   │   ├── main.tf
+│   │   │   ├── variables.tf
+│   │   │   └── outputs.tf
+│   │   │
+│   │   ├── iam/
+│   │   │   ├── main.tf
+│   │   │   ├── variables.tf
+│   │   │   └── outputs.tf
+│   │   │
+│   │   ├── monitoring/
+│   │   │   ├── main.tf
+│   │   │   ├── variables.tf
+│   │   │   └── outputs.tf
+│   │   │
+│   │   ├── s3-lifecycle/                # Safe data retention
+│   │   │   ├── main.tf
+│   │   │   ├── variables.tf
+│   │   │   └── outputs.tf
+│   │   │
+│   │   └── backup/                       # AWS Backup policies
+│   │       ├── main.tf
+│   │       ├── variables.tf
+│   │       └── outputs.tf
+│   │
+│   ├── global/
+│   │   ├── iam/
+│   │   │   ├── main.tf
+│   │   │   ├── variables.tf
+│   │   │   └── outputs.tf
+│   │   └── s3/
+│   │       ├── main.tf
+│   │       ├── variables.tf
+│   │       └── outputs.tf
+│   │
+│   ├── provider.tf
+│   ├── versions.tf
+│   └── backend.tf
+│
+├── kubernetes/
+│   ├── digit/
+│   │   ├── namespace.yaml
+│   │   ├── configmap.yaml
+│   │   ├── secrets.yaml
+│   │   ├── service-account.yaml
+│   │   ├── pvc.yaml
+│   │   ├── pgbouncer.yaml                 # Connection pooling
+│   │   ├── kafka-operator-config.yaml      # Kafka managed by operator
+│   │   ├── kafka-periodic-adjuster.yaml    # Auto-retention adjustment
+│   │   │
+│   │   ├── deployments/
+│   │   │   ├── backend.yaml
+│   │   │   ├── frontend.yaml
+│   │   │   └── worker.yaml
+│   │   │
+│   │   ├── services/
+│   │   │   ├── backend-service.yaml
+│   │   │   ├── frontend-service.yaml
+│   │   │   └── worker-service.yaml
+│   │   │
+│   │   ├── hpa.yaml                        # Horizontal Pod Autoscaler
+│   │   ├── pod-disruption-budget.yaml
+│   │   └── ingress.yaml
+│   │
+│   └── jenkins/
+│       ├── namespace.yaml
+│       ├── pvc.yaml
+│       ├── service-account.yaml
+│       ├── values.yaml
+│       ├── jenkins.yaml
+│       └── plugins.txt
+│
+├── helm/
+│   └── digit-hcm/
+│       ├── Chart.yaml
+│       ├── values.yaml
+│       ├── values-dev.yaml
+│       ├── values-uat.yaml
+│       ├── values-prod.yaml
+│       └── templates/
+│           ├── _helpers.tpl
+│           ├── deployment.yaml
+│           ├── service.yaml
+│           ├── configmap.yaml
+│           ├── secrets.yaml
+│           ├── ingress.yaml
+│           └── hpa.yaml
+│
+├── monitoring/
+│   ├── cloudwatch-dashboards/              # Dashboards as code
+│   │   ├── cost-optimization.json
+│   │   ├── cluster-health.json
+│   │   └── database-performance.json
+│   │
+│   ├── sns-topics/                          # Alerts as code
+│   │   ├── budget-alerts.tf
+│   │   └── operational-alerts.tf
+│   │
+│   ├── prometheus/
+│   │   ├── prometheus.yml
+│   │   └── rules.yml
+│   │
+│   └── grafana/
+│       ├── dashboards/
+│       └── datasources/
+│
+├── docs/                                    # Documentation only
+│   ├── architecture.md
+│   ├── operations-guide.md
+│   ├── cost-optimization.md
+│   └── troubleshooting.md
+│
+├── scripts/                                 # Essential scripts only
+│   ├── deploy.sh
+│   ├── configure-kubectl.sh
+│   ├── backup.sh
+│   └── restore.sh
+│
+├── .gitignore
+├── .terraform-docs.yml
+├── terraform-docs.sh
+└── README.md
+
+
 📋 Table of Contents
 Project Overview
 
@@ -201,3 +383,9 @@ GitHub Actions runs DAILY at 8 AM:
         ├── 1 EKS node
         ├── No RDS replica
         └── Kafka 1-day retention
+
+        Key Dates - Automatic
+Date	Action	Automatic?
+May 1	Scale UP for campaign season	✅ Yes
+October 31	Still active	✅ Yes
+November 1	Scale DOWN for off-season	✅ Yes
