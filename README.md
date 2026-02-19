@@ -1,6 +1,6 @@
 AWS DIGIT HCM Infrastructure - Complete Guide
 
-
+<pre>
 aws-digit-infrastructure/
 ├── .github/
 │   └── workflows/
@@ -179,8 +179,8 @@ aws-digit-infrastructure/
 ├── .terraform-docs.yml
 ├── terraform-docs.sh
 └── README.md
-
-
+</pre>
+<pre>
 📋 Table of Contents
 Project Overview
 
@@ -259,6 +259,8 @@ High-Level Design
      │  │ Instances  │  │  Scaling   │  │  Policies  │  │  Cleanup   │ │
      │  └────────────┘  └────────────┘  └────────────┘  └────────────┘ │
      └─────────────────────────────────────────────────────────────────┘
+
+     </pre>
 4. Prerequisites
    Required Tools
 # For Windows (using Git Bash or WSL)
@@ -368,6 +370,7 @@ data:
   APP_ENV: "prod"
   DB_HOST: "pgbouncer"  # Uses connection pooling
   # ... other config
+<pre>
 7. Cost-Saving Implementation Guide
 How Seasonal Auto-Scaling Works
 GitHub Actions runs DAILY at 8 AM:
@@ -389,3 +392,4 @@ Date	Action	Automatic?
 May 1	Scale UP for campaign season	✅ Yes
 October 31	Still active	✅ Yes
 November 1	Scale DOWN for off-season	✅ Yes
+</pre>
