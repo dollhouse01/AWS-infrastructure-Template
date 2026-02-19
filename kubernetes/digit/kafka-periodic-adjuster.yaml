@@ -1,0 +1,31 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: kafka-retention-adjuster
+  namespace: digit-hcm
+spec:
+  schedule: "0 8 * * 1"  # Every Monday at 8 AM
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: digit-hcm-sa
+          containers:
+          - name: kafka-adjuster
+            image: bitnami/kubectl:latest
+            command:
+            - /bin/bash
+            - -c
+            - |
+              # Check if we're in active period (June-October)
+              CURRENT_MONTH=$(date +%m)
+              if [ $CURRENT_MONTH -ge 6 ] && [ $CURRENT_MONTH -le 10 ]; then
+                echo "Active period - Setting longer retention"
+                kubectl patch kafkatopic user-events -n digit-hcm --type='json' \
+                  -p='[{"op": "replace", "path": "/spec/config/retention.ms", "value": 604800000}]'
+              else
+                echo "Idle period - Setting shorter retention"
+                kubectl patch kafkatopic user-events -n digit-hcm --type='json' \
+                  -p='[{"op": "replace", "path": "/spec/config/retention.ms", "value": 86400000}]'
+              fi
+          restartPolicy: OnFailure

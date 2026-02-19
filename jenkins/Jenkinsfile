@@ -1,0 +1,173 @@
+pipeline {
+    agent any
+    
+    environment {
+        AWS_REGION = 'af-south-1'
+        DOCKER_REGISTRY = 'your-registry.dkr.ecr.af-south-1.amazonaws.com'
+        EKS_CLUSTER_NAME = "digit-hcm-${env.BRANCH_NAME}"
+    }
+    
+    parameters {
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['dev', 'uat', 'prod'],
+            description: 'Environment to deploy to'
+        )
+        string(
+            name: 'BACKEND_VERSION',
+            defaultValue: 'latest',
+            description: 'Backend image version/tag'
+        )
+        string(
+            name: 'FRONTEND_VERSION',
+            defaultValue: 'latest',
+            description: 'Frontend image version/tag'
+        )
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                checkout scm
+            }
+        }
+        
+        stage('Build and Push Images') {
+            when {
+                branch 'develop'
+            }
+            steps {
+                script {
+                    sh """
+                        aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${DOCKER_REGISTRY}
+                        
+                        # Build and push backend
+                        docker build -t ${DOCKER_REGISTRY}/digit-hcm-backend:${BUILD_NUMBER} -f docker/backend/Dockerfile .
+                        docker push ${DOCKER_REGISTRY}/digit-hcm-backend:${BUILD_NUMBER}
+                        
+                        # Build and push frontend
+                        docker build -t ${DOCKER_REGISTRY}/digit-hcm-frontend:${BUILD_NUMBER} -f docker/frontend/Dockerfile .
+                        docker push ${DOCKER_REGISTRY}/digit-hcm-frontend:${BUILD_NUMBER}
+                        
+                        # Build and push worker
+                        docker build -t ${DOCKER_REGISTRY}/digit-hcm-worker:${BUILD_NUMBER} -f docker/worker/Dockerfile .
+                        docker push ${DOCKER_REGISTRY}/digit-hcm-worker:${BUILD_NUMBER}
+                    """
+                }
+            }
+        }
+        
+        stage('Terraform Init') {
+            steps {
+                dir("terraform/environments/${params.ENVIRONMENT}") {
+                    sh 'terraform init'
+                }
+            }
+        }
+        
+        stage('Terraform Plan') {
+            steps {
+                dir("terraform/environments/${params.ENVIRONMENT}") {
+                    sh 'terraform plan -out=tfplan'
+                }
+            }
+        }
+        
+        stage('Approval') {
+            when {
+                expression { params.ENVIRONMENT == 'prod' }
+            }
+            steps {
+                input message: 'Approve deployment to production?', ok: 'Deploy'
+            }
+        }
+        
+        stage('Terraform Apply') {
+            steps {
+                dir("terraform/environments/${params.ENVIRONMENT}") {
+                    sh 'terraform apply -auto-approve tfplan'
+                }
+            }
+        }
+        
+        stage('Configure kubectl') {
+            steps {
+                script {
+                    sh """
+                        cd terraform/environments/${params.ENVIRONMENT}
+                        CLUSTER_NAME=\$(terraform output -raw eks_cluster_name)
+                        aws eks update-kubeconfig --region ${AWS_REGION} --name \${CLUSTER_NAME}
+                    """
+                }
+            }
+        }
+        
+        stage('Deploy to Kubernetes') {
+            steps {
+                script {
+                    sh """
+                        # Update image tags
+                        kubectl set image deployment/digit-hcm-backend -n digit-hcm \
+                            backend=${DOCKER_REGISTRY}/digit-hcm-backend:${params.BACKEND_VERSION}
+                        kubectl set image deployment/digit-hcm-frontend -n digit-hcm \
+                            frontend=${DOCKER_REGISTRY}/digit-hcm-frontend:${params.FRONTEND_VERSION}
+                        kubectl set image deployment/digit-hcm-worker -n digit-hcm \
+                            worker=${DOCKER_REGISTRY}/digit-hcm-worker:${params.BACKEND_VERSION}
+                        
+                        # Wait for rollout
+                        kubectl rollout status deployment/digit-hcm-backend -n digit-hcm
+                        kubectl rollout status deployment/digit-hcm-frontend -n digit-hcm
+                        kubectl rollout status deployment/digit-hcm-worker -n digit-hcm
+                    """
+                }
+            }
+        }
+        
+        stage('Health Check') {
+            steps {
+                script {
+                    sh """
+                        # Get load balancer URL
+                        LB_DNS=\$(kubectl get ingress -n digit-hcm digit-hcm-ingress -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+                        
+                        # Check health endpoints
+                        curl -f http://\${LB_DNS}/health || exit 1
+                        curl -f http://\${LB_DNS}/api/health || exit 1
+                    """
+                }
+            }
+        }
+        
+        stage('Smoke Tests') {
+            steps {
+                script {
+                    sh """
+                        # Run smoke tests
+                        cd tests/smoke
+                        ./run-smoke-tests.sh ${params.ENVIRONMENT}
+                    """
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            cleanWs()
+        }
+        success {
+            echo 'Deployment successful!'
+            slackSend(
+                color: 'good',
+                message: "Deployment to ${params.ENVIRONMENT} successful: ${env.JOB_NAME} - ${env.BUILD_NUMBER}"
+            )
+        }
+        failure {
+            echo 'Deployment failed!'
+            slackSend(
+                color: 'danger',
+                message: "Deployment to ${params.ENVIRONMENT} failed: ${env.JOB_NAME} - ${env.BUILD_NUMBER}"
+            )
+        }
+    }
+}

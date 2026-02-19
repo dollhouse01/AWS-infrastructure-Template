@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: digit-hcm
+  labels:
+    name: digit-hcm
+    environment: ${ENVIRONMENT}
+    app.kubernetes.io/name: digit-hcm
+    app.kubernetes.io/part-of: digit-hcm

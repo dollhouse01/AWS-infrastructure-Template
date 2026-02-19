@@ -1,0 +1,73 @@
+name: Emergency Response
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Emergency Action'
+        required: true
+        type: choice
+        options:
+          - force-scale-down
+          - pause-non-critical
+          - enable-dr-replica
+          - restore-from-backup
+
+env:
+  AWS_REGION: af-south-1
+  EKS_CLUSTER: prod-digit-hcm
+
+jobs:
+  emergency:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Force Scale Down
+        if: github.event.inputs.action == 'force-scale-down'
+        run: |
+          echo "🚨 EMERGENCY SCALE DOWN"
+          
+          # Scale EKS nodes
+          aws eks update-nodegroup-config \
+            --cluster-name $EKS_CLUSTER \
+            --nodegroup-name spot-main \
+            --scaling-config desiredSize=1,minSize=1,maxSize=2
+          
+          # Scale down all deployments
+          kubectl scale deployment --all --replicas=1 -n digit-hcm
+          
+          # Alert team
+          curl -X POST -H 'Content-type: application/json' \
+            --data '{"text":"🚨 EMERGENCY: System scaled down"}' \
+            ${{ secrets.SLACK_WEBHOOK }}
+      
+      - name: Pause Non-Critical Services
+        if: github.event.inputs.action == 'pause-non-critical'
+        run: |
+          echo "⏸️ Pausing non-critical services"
+          kubectl scale deployment digit-hcm-worker --replicas=0 -n digit-hcm
+          kubectl scale deployment digit-hcm-frontend --replicas=1 -n digit-hcm
+          # Keep backend running
+      
+      - name: Enable Disaster Recovery Replica
+        if: github.event.inputs.action == 'enable-dr-replica'
+        run: |
+          echo "🔄 Enabling DR replica"
+          # This is handled by Terraform
+          sed -i 's/create_read_replica.*=.*/create_read_replica = true/' terraform/environments/prod/terraform.tfvars
+          cd terraform/environments/prod
+          terraform apply -auto-approve
+      
+      - name: Restore from Backup
+        if: github.event.inputs.action == 'restore-from-backup'
+        run: |
+          echo "💾 Manual restore required - check docs"
+          echo "Run: ./scripts/restore.sh prod [backup-timestamp]"

@@ -1,0 +1,108 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/EKS", "node_count", { "stat": "Average", "label": "EKS Nodes" } ],
+          [ ".", "cluster_failed_node_count", { "stat": "Average", "label": "Failed Nodes" } ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "af-south-1",
+        "title": "EKS Cluster Health",
+        "view": "timeSeries",
+        "stacked": false
+      }
+    },
+    {
+      "type": "metric",
+      "x": 12,
+      "y": 0,
+      "width": 12,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/EKS", "cpu_utilization", { "stat": "Average", "label": "CPU Average" } ],
+          [ "...", { "stat": "p95", "label": "CPU p95" } ],
+          [ "...", { "stat": "p99", "label": "CPU p99" } ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "af-south-1",
+        "title": "CPU Utilization",
+        "view": "timeSeries"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 6,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/ApplicationELB", "ActiveConnectionCount", { "stat": "Sum", "label": "Active Connections" } ]
+        ],
+        "period": 300,
+        "stat": "Sum",
+        "region": "af-south-1",
+        "title": "Load Balancer Connections",
+        "view": "timeSeries"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 8,
+      "y": 6,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/ApplicationELB", "TargetResponseTime", { "stat": "Average", "label": "Avg Response" } ],
+          [ "...", { "stat": "p95", "label": "p95 Response" } ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "af-south-1",
+        "title": "Response Times",
+        "view": "timeSeries"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 16,
+      "y": 6,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/ApplicationELB", "HTTPCode_Target_5XX_Count", { "stat": "Sum", "label": "5XX Errors" } ],
+          [ ".", "HTTPCode_Target_4XX_Count", { "stat": "Sum", "label": "4XX Errors" } ]
+        ],
+        "period": 300,
+        "stat": "Sum",
+        "region": "af-south-1",
+        "title": "Error Rates",
+        "view": "timeSeries"
+      }
+    },
+    {
+      "type": "log",
+      "x": 0,
+      "y": 12,
+      "width": 24,
+      "height": 6,
+      "properties": {
+        "query": "SOURCE '/aws/eks/prod-digit-hcm/cluster' | fields @timestamp, @message\n| filter @message like /ERROR|WARN|FAIL/\n| sort @timestamp desc\n| limit 20",
+        "region": "af-south-1",
+        "title": "Recent Cluster Errors",
+        "view": "table"
+      }
+    }
+  ]
+}

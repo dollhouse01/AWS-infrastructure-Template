@@ -1,0 +1,134 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 0,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/RDS", "DatabaseConnections", { "stat": "Average", "label": "Connections" } ],
+          [ ".", "DatabaseConnections", { "stat": "Maximum", "label": "Max Connections" } ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "af-south-1",
+        "title": "Database Connections",
+        "view": "timeSeries"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 8,
+      "y": 0,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/RDS", "CPUUtilization", { "stat": "Average", "label": "CPU %" } ],
+          [ ".", "CPUUtilization", { "stat": "Maximum", "label": "CPU Max" } ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "af-south-1",
+        "title": "CPU Utilization",
+        "view": "timeSeries"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 16,
+      "y": 0,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/RDS", "FreeableMemory", { "stat": "Average", "label": "Free Memory" } ],
+          [ ".", "FreeStorageSpace", { "stat": "Average", "label": "Free Storage" } ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "af-south-1",
+        "title": "Memory & Storage",
+        "view": "timeSeries",
+        "yAxis": {
+          "left": {
+            "min": 0
+          }
+        }
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 6,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/RDS", "ReadLatency", { "stat": "Average", "label": "Read Latency" } ],
+          [ ".", "WriteLatency", { "stat": "Average", "label": "Write Latency" } ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "af-south-1",
+        "title": "Read/Write Latency",
+        "view": "timeSeries"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 8,
+      "y": 6,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/RDS", "ReadIOPS", { "stat": "Average", "label": "Read IOPS" } ],
+          [ ".", "WriteIOPS", { "stat": "Average", "label": "Write IOPS" } ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "af-south-1",
+        "title": "IOPS",
+        "view": "timeSeries"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 16,
+      "y": 6,
+      "width": 8,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/RDS", "ReplicaLag", { "stat": "Average", "label": "Replica Lag" } ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "af-south-1",
+        "title": "Replica Lag (if active)",
+        "view": "timeSeries"
+      }
+    },
+    {
+      "type": "metric",
+      "x": 0,
+      "y": 12,
+      "width": 24,
+      "height": 6,
+      "properties": {
+        "metrics": [
+          [ "AWS/RDS", "TransactionLogsDiskUsage", { "stat": "Average" } ],
+          [ ".", "TransactionLogsGeneration", { "stat": "Average" } ]
+        ],
+        "period": 300,
+        "stat": "Average",
+        "region": "af-south-1",
+        "title": "Transaction Logs",
+        "view": "timeSeries"
+      }
+    }
+  ]
+}

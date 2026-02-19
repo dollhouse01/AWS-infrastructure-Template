@@ -1,0 +1,76 @@
+# Jenkins Helm chart values
+master:
+  imageTag: "lts-jdk11"
+  imagePullPolicy: "Always"
+  numExecutors: 2
+  
+  resources:
+    requests:
+      cpu: "500m"
+      memory: "2Gi"
+    limits:
+      cpu: "2000m"
+      memory: "4Gi"
+  
+  jenkinsUriPrefix: "/jenkins"
+  
+  servicePort: 8080
+  targetPort: 8080
+  
+  serviceType: ClusterIP
+  
+  installPlugins:
+    - kubernetes:latest
+    - workflow-job:latest
+    - workflow-aggregator:latest
+    - credentials-binding:latest
+    - git:latest
+    - github:latest
+    - pipeline-github-lib:latest
+    - docker-workflow:latest
+    - docker-plugin:latest
+    - amazon-ecr:latest
+    - aws-credentials:latest
+    - aws-steps:latest
+    - terraform:latest
+    - blueocean:latest
+    - slack:latest
+    - email-ext:latest
+  
+  ingress:
+    enabled: true
+    apiVersion: "networking.k8s.io/v1"
+    annotations:
+      kubernetes.io/ingress.class: "alb"
+      alb.ingress.kubernetes.io/scheme: "internal"
+      alb.ingress.kubernetes.io/target-type: "ip"
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+      alb.ingress.kubernetes.io/healthcheck-path: "/jenkins/login"
+    hostName: "jenkins.${ENVIRONMENT}.internal"
+    path: "/jenkins"
+  
+  persistence:
+    enabled: true
+    existingClaim: "jenkins-home"
+    accessMode: "ReadWriteOnce"
+    size: "50Gi"
+  
+  sidecars:
+    configAutoReload:
+      enabled: true
+      image: "kiwigrid/k8s-sidecar:latest"
+  
+  customJenkinsLabels: ["jenkins-${ENVIRONMENT}"]
+  
+agent:
+  enabled: true
+  image: "jenkins/inbound-agent:latest"
+  alwaysPullImage: true
+  privileged: true
+  resources:
+    requests:
+      cpu: "200m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"

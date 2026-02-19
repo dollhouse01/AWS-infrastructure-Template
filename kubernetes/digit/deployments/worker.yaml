@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: digit-hcm-worker
+  namespace: digit-hcm
+  labels:
+    app: digit-hcm
+    tier: worker
+    environment: ${ENVIRONMENT}
+spec:
+  replicas: ${WORKER_REPLICAS}
+  selector:
+    matchLabels:
+      app: digit-hcm
+      tier: worker
+  template:
+    metadata:
+      labels:
+        app: digit-hcm
+        tier: worker
+        environment: ${ENVIRONMENT}
+    spec:
+      serviceAccountName: digit-hcm-sa
+      containers:
+        - name: worker
+          image: ${WORKER_IMAGE}:${IMAGE_TAG}
+          imagePullPolicy: Always
+          envFrom:
+            - configMapRef:
+                name: digit-hcm-config
+            - secretRef:
+                name: digit-hcm-secrets
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          command:
+            - "php"
+            - "artisan"
+            - "queue:work"
+            - "--sleep=3"
+            - "--tries=3"
+            - "--max-time=3600"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          volumeMounts:
+            - name: logs
+              mountPath: /app/logs
+      volumes:
+        - name: logs
+          persistentVolumeClaim:
+            claimName: digit-hcm-logs
+      terminationGracePeriodSeconds: 30

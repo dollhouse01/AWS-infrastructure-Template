@@ -1,0 +1,45 @@
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: digit-hcm-backend
+  namespace: digit-hcm
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: digit-hcm-backend
+  minReplicas: ${BACKEND_MIN_REPLICAS}
+  maxReplicas: ${BACKEND_MAX_REPLICAS}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: digit-hcm-frontend
+  namespace: digit-hcm
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: digit-hcm-frontend
+  minReplicas: ${FRONTEND_MIN_REPLICAS}
+  maxReplicas: ${FRONTEND_MAX_REPLICAS}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70

@@ -1,0 +1,48 @@
+formatter: markdown table
+version: ""
+header-from: main.tf
+footer-from: ""
+
+sections:
+  show:
+    - inputs
+    - outputs
+    - modules
+    - providers
+    - requirements
+    - resources
+
+content: |-
+  {{ .Header }}
+
+  ## Requirements
+
+  {{ .Requirements }}
+
+  ## Providers
+
+  {{ .Providers }}
+
+  ## Modules
+
+  {{ .Modules }}
+
+  ## Resources
+
+  {{ .Resources }}
+
+  ## Inputs
+
+  {{ .Inputs }}
+
+  ## Outputs
+
+  {{ .Outputs }}
+
+output:
+  file: README.md
+  mode: inject
+  template: |-
+    <!-- BEGIN_TF_DOCS -->
+    {{ .Content }}
+    <!-- END_TF_DOCS -->

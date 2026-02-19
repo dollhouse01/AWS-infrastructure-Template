@@ -1,0 +1,98 @@
+# Jenkins Configuration as Code
+jenkins:
+  systemMessage: "Jenkins configured automatically by Jenkins Configuration as Code plugin"
+  
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "admin"
+          password: "${JENKINS_ADMIN_PASSWORD}"
+  
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+  
+  remotingSecurity:
+    enabled: true
+  
+  numExecutors: 0
+  
+  clouds:
+    - kubernetes:
+        name: "kubernetes"
+        serverUrl: "https://kubernetes.default.svc"
+        skipTlsVerify: true
+        namespace: "jenkins"
+        jenkinsUrl: "http://jenkins:8080/jenkins"
+        jenkinsTunnel: "jenkins-agent:50000"
+        containerCap: 10
+        maxRequestsPerHost: 32
+        templates:
+          - name: "default"
+            label: "jenkins-${ENVIRONMENT}"
+            namespace: "jenkins"
+            idleMinutes: 0
+            slaveConnectTimeout: 120
+            containers:
+              - name: "jnlp"
+                image: "jenkins/inbound-agent:latest"
+                workingDir: "/home/jenkins"
+                resourceLimitCpu: "500m"
+                resourceLimitMemory: "512Mi"
+                resourceRequestCpu: "200m"
+                resourceRequestMemory: "256Mi"
+  
+  jobs:
+    - script: >
+        multibranchPipelineJob('digit-hcm') {
+          branchSources {
+            git {
+              id = 'digit-hcm'
+              remote = 'https://github.com/your-org/digit-hcm.git'
+              credentialsId = 'github-credentials'
+              includes('*')
+              excludes('main prod')
+            }
+          }
+          orphanedItemStrategy {
+            discardOldItems {
+              numToKeep(10)
+            }
+          }
+          factory {
+            workflowBranchProjectFactory {
+              scriptPath('Jenkinsfile')
+            }
+          }
+        }
+
+tool:
+  git:
+    installations:
+      - name: "Default"
+        home: "git"
+  terraform:
+    installations:
+      - name: "terraform"
+        home: "/usr/local/bin/terraform"
+
+unclassified:
+  location:
+    url: "http://jenkins.${ENVIRONMENT}.internal/jenkins"
+  
+  buildDiscarders:
+    configuredBuildDiscarders:
+      - "jobBuildDiscarder"
+  
+  timestamper:
+    allPipelines: true
+  
+  pipeline-model:
+    dockerLabel: "docker"
+  
+  githubplugin:
+    configs:
+      - name: "github"
+        apiUrl: "https://api.github.com"
+        credentialsId: "github-credentials"

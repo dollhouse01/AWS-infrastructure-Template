@@ -1,0 +1,90 @@
+environment: uat
+
+replicaCount: 2
+
+backend:
+  replicaCount: 2
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 250m
+    limits:
+      memory: 1Gi
+      cpu: 500m
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+
+frontend:
+  replicaCount: 2
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 250m
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+
+worker:
+  replicaCount: 1
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 250m
+
+postgresql:
+  enabled: true
+  architecture: replication
+  auth:
+    database: digit_hcm_uat
+  primary:
+    persistence:
+      size: 50Gi
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 250m
+  readReplicas:
+    replicaCount: 1
+    persistence:
+      size: 50Gi
+
+redis:
+  enabled: true
+  architecture: replication
+  master:
+    persistence:
+      size: 10Gi
+  replica:
+    replicaCount: 1
+    persistence:
+      size: 10Gi
+
+kafka:
+  enabled: true
+  replicaCount: 2
+  persistence:
+    size: 50Gi
+  config:
+    retention.ms: 259200000  # 3 days
+    segment.bytes: 536870912
+
+ingress:
+  enabled: true
+  hosts:
+    - host: api.uat.digit-hcm.com
+      paths:
+        - path: /
+    - host: app.uat.digit-hcm.com
+      paths:
+        - path: /

@@ -1,0 +1,16 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [ "AWS/Billing", "EstimatedCharges", { "stat": "Maximum" } ]
+        ],
+        "period": 86400,
+        "stat": "Maximum",
+        "region": "us-east-1",
+        "title": "Daily Cost"
+      }
+    }
+  ]
+}

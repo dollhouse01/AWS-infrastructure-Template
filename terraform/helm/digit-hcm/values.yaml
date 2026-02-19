@@ -1,0 +1,184 @@
+# Default values for digit-hcm
+# This is a YAML-formatted file.
+
+# Environment
+environment: dev
+
+# Image configuration
+image:
+  registry: public.ecr.aws
+  repository: digit-hcm/app
+  tag: latest
+  pullPolicy: Always
+
+# Resource scaling
+replicaCount: 1
+
+# Backend configuration
+backend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: digit-hcm/backend
+    tag: latest
+  service:
+    port: 8080
+    targetPort: 8080
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 250m
+    limits:
+      memory: 1Gi
+      cpu: 500m
+  env:
+    - name: APP_ENV
+      value: "dev"
+    - name: LOG_LEVEL
+      value: "info"
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+
+# Frontend configuration
+frontend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: digit-hcm/frontend
+    tag: latest
+  service:
+    port: 80
+    targetPort: 80
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 250m
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 70
+
+# Worker configuration
+worker:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: digit-hcm/worker
+    tag: latest
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 250m
+
+# Database configuration
+postgresql:
+  enabled: true
+  architecture: replication
+  auth:
+    database: digit_hcm
+    username: digit_user
+    password: ""
+    existingSecret: ""
+  primary:
+    persistence:
+      size: 50Gi
+    resources:
+      requests:
+        memory: 512Mi
+        cpu: 250m
+  readReplicas:
+    replicaCount: 1
+    persistence:
+      size: 50Gi
+
+# Redis configuration
+redis:
+  enabled: true
+  architecture: standalone
+  auth:
+    enabled: true
+    password: ""
+    existingSecret: ""
+  master:
+    persistence:
+      size: 10Gi
+    resources:
+      requests:
+        memory: 256Mi
+        cpu: 100m
+
+# Kafka configuration
+kafka:
+  enabled: true
+  replicaCount: 3
+  persistence:
+    size: 50Gi
+  resources:
+    requests:
+      memory: 1Gi
+      cpu: 500m
+    limits:
+      memory: 2Gi
+      cpu: 1000m
+  config:
+    retention.ms: 604800000  # 7 days
+    segment.bytes: 1073741824
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+  hosts:
+    - host: api.digit-hcm.local
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: backend
+              port:
+                number: 8080
+    - host: app.digit-hcm.local
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: frontend
+              port:
+                number: 80
+
+# Service account
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# Pod security
+podSecurityContext:
+  fsGroup: 1000
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+
+# Node selection
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}

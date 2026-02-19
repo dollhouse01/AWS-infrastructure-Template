@@ -1,0 +1,142 @@
+environment: prod
+
+replicaCount: 3
+
+backend:
+  replicaCount: 3
+  resources:
+    requests:
+      memory: 1Gi
+      cpu: 500m
+    limits:
+      memory: 2Gi
+      cpu: 1000m
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+frontend:
+  replicaCount: 3
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 250m
+    limits:
+      memory: 1Gi
+      cpu: 500m
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+
+worker:
+  replicaCount: 2
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 250m
+    limits:
+      memory: 1Gi
+      cpu: 500m
+
+postgresql:
+  enabled: true
+  architecture: replication
+  auth:
+    database: digit_hcm_prod
+    existingSecret: digit-hcm-database-secrets
+  primary:
+    persistence:
+      size: 100Gi
+      storageClass: gp3
+    resources:
+      requests:
+        memory: 2Gi
+        cpu: 1000m
+      limits:
+        memory: 4Gi
+        cpu: 2000m
+  readReplicas:
+    replicaCount: 1
+    persistence:
+      size: 100Gi
+      storageClass: gp3
+    resources:
+      requests:
+        memory: 2Gi
+        cpu: 1000m
+
+redis:
+  enabled: true
+  architecture: replication
+  auth:
+    enabled: true
+    existingSecret: digit-hcm-redis-secrets
+  master:
+    persistence:
+      size: 20Gi
+      storageClass: gp3
+    resources:
+      requests:
+        memory: 1Gi
+        cpu: 500m
+  replica:
+    replicaCount: 1
+    persistence:
+      size: 20Gi
+    resources:
+      requests:
+        memory: 1Gi
+        cpu: 500m
+
+kafka:
+  enabled: true
+  replicaCount: 3
+  persistence:
+    size: 200Gi
+    storageClass: gp3
+  resources:
+    requests:
+      memory: 2Gi
+      cpu: 1000m
+    limits:
+      memory: 4Gi
+      cpu: 2000m
+  config:
+    retention.ms: 604800000  # 7 days (active period)
+    segment.bytes: 1073741824
+    min.insync.replicas: 2
+    default.replication.factor: 3
+
+ingress:
+  enabled: true
+  className: "alb"
+  annotations:
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}, {"HTTPS":443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: '443'
+    alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:af-south-1:123456789012:certificate/xxx
+  hosts:
+    - host: api.digit-hcm.com
+      paths:
+        - path: /
+    - host: app.digit-hcm.com
+      paths:
+        - path: /
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+topologySpreadConstraints:
+  - maxSkew: 1
+    topologyKey: topology.kubernetes.io/zone
+    whenUnsatisfiable: DoNotSchedule
+    labelSelector:
+      matchLabels:
+        app.kubernetes.io/name: digit-hcm

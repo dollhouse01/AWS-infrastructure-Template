@@ -1,0 +1,134 @@
+name: Infrastructure Deployment
+
+on:
+  push:
+    branches: [ main ]
+  schedule:
+    - cron: '0 8 * * *'   # Check EVERY DAY at 8 AM
+  workflow_dispatch:        # Manual override if needed
+
+env:
+  AWS_REGION: af-south-1
+  EKS_CLUSTER: prod-digit-hcm
+
+jobs:
+  check-season:
+    runs-on: ubuntu-latest
+    outputs:
+      should_be_active: ${{ steps.season-check.outputs.should_be_active }}
+      season: ${{ steps.season-check.outputs.season }}
+    steps:
+      - name: Check Current Month
+        id: season-check
+        run: |
+          # Get current month number (1-12)
+          CURRENT_MONTH=$(date +%m)
+          echo "Current month: $CURRENT_MONTH"
+          
+          # SEASON LOGIC: May (5) to October (10) is ACTIVE
+          # November (11) to April (4) is IDLE
+          if [ $CURRENT_MONTH -ge 5 ] && [ $CURRENT_MONTH -le 10 ]; then
+            echo "🎯 ACTIVE SEASON: May-October"
+            echo "should_be_active=true" >> $GITHUB_OUTPUT
+            echo "season=ACTIVE" >> $GITHUB_OUTPUT
+          else
+            echo "💤 IDLE SEASON: November-April"
+            echo "should_be_active=false" >> $GITHUB_OUTPUT
+            echo "season=IDLE" >> $GITHUB_OUTPUT
+          fi
+
+  apply-configuration:
+    needs: check-season
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.5.0
+      
+      - name: Check Current Terraform Setting
+        id: check-current
+        run: |
+          cd terraform/environments/prod
+          CURRENT=$(grep current_period terraform.tfvars | cut -d'=' -f2 | tr -d ' "')
+          echo "current_setting=$CURRENT" >> $GITHUB_OUTPUT
+          echo "Current Terraform setting: $CURRENT"
+      
+      - name: Apply ACTIVE Season Configuration (May-October)
+        if: needs.check-season.outputs.should_be_active == 'true' && steps.check-current.outputs.current_setting != 'active'
+        run: |
+          echo "🌞 ACTIVE SEASON DETECTED (May-October)"
+          echo "Scaling UP for campaign period..."
+          
+          # Update Terraform to active
+          cd terraform/environments/prod
+          sed -i 's/current_period.*=.*/current_period    = "active"/' terraform.tfvars
+          terraform init
+          terraform apply -auto-approve
+          
+          # Configure kubectl
+          aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER
+          
+          # Scale up deployments
+          kubectl scale deployment -n digit-hcm digit-hcm-backend --replicas=5
+          kubectl scale deployment -n digit-hcm digit-hcm-frontend --replicas=3
+          kubectl scale deployment -n digit-hcm digit-hcm-worker --replicas=2
+          
+          # Enable HPA
+          kubectl patch hpa -n digit-hcm digit-hcm-backend -p '{"spec":{"minReplicas":3}}'
+          
+          # Send notification
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"🌞 ACTIVE SEASON STARTED: Scaled up for May-October campaign period\"}" \
+            ${{ secrets.SLACK_WEBHOOK }} || true
+          
+          echo "✅ Active season configuration applied"
+      
+      - name: Apply IDLE Season Configuration (November-April)
+        if: needs.check-season.outputs.should_be_active == 'false' && steps.check-current.outputs.current_setting != 'idle'
+        run: |
+          echo "❄️ IDLE SEASON DETECTED (November-April)"
+          echo "Scaling DOWN for off-season..."
+          
+          # Update Terraform to idle
+          cd terraform/environments/prod
+          sed -i 's/current_period.*=.*/current_period    = "idle"/' terraform.tfvars
+          terraform init
+          terraform apply -auto-approve
+          
+          # Configure kubectl
+          aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER
+          
+          # Scale down deployments
+          kubectl scale deployment -n digit-hcm digit-hcm-backend --replicas=1
+          kubectl scale deployment -n digit-hcm digit-hcm-frontend --replicas=1
+          kubectl scale deployment -n digit-hcm digit-hcm-worker --replicas=0
+          
+          # Update HPA
+          kubectl patch hpa -n digit-hcm digit-hcm-backend -p '{"spec":{"minReplicas":1}}'
+          
+          # Send notification
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{\"text\":\"❄️ IDLE SEASON STARTED: Scaled down for November-April off-season\"}" \
+            ${{ secrets.SLACK_WEBHOOK }} || true
+          
+          echo "✅ Idle season configuration applied"
+      
+      - name: No Change Needed
+        if: needs.check-season.outputs.should_be_active == 'true' && steps.check-current.outputs.current_setting == 'active'
+        run: |
+          echo "✅ Already in ACTIVE season configuration - no changes needed"
+      
+      - name: No Change Needed
+        if: needs.check-season.outputs.should_be_active == 'false' && steps.check-current.outputs.current_setting == 'idle'
+        run: |
+          echo "✅ Already in IDLE season configuration - no changes needed"
