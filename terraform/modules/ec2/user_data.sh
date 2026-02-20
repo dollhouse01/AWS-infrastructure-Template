@@ -41,8 +41,8 @@ for vol in /dev/sd[b-z]; do
     fi
 done
 
-# Set environment tag - FIXED: Use proper interpolation syntax
-echo "ENVIRONMENT=${environment}" >> /etc/environment
+# Set environment tag - FIXED: Escaped with $${
+echo "ENVIRONMENT=$${environment}" >> /etc/environment
 
 # Install CloudWatch agent
 yum install -y amazon-cloudwatch-agent
@@ -98,17 +98,17 @@ cat > /opt/aws/amazon-cloudwatch-agent/bin/config.json <<EOF
         "collect_list": [
           {
             "file_path": "/var/log/messages",
-            "log_group_name": "/${environment}/ec2/messages",
+            "log_group_name": "/$${environment}/ec2/messages",
             "log_stream_name": "{instance_id}"
           },
           {
             "file_path": "/var/log/secure",
-            "log_group_name": "/${environment}/ec2/secure",
+            "log_group_name": "/$${environment}/ec2/secure",
             "log_stream_name": "{instance_id}"
           },
           {
             "file_path": "/var/log/cloud-init.log",
-            "log_group_name": "/${environment}/ec2/cloud-init",
+            "log_group_name": "/$${environment}/ec2/cloud-init",
             "log_stream_name": "{instance_id}"
           }
         ]
