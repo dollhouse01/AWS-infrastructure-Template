@@ -1,3 +1,9 @@
+# Add this data source at the top of the file
+data "aws_subnet" "selected" {
+  count = length(var.private_subnet_ids)
+  id    = var.private_subnet_ids[count.index]
+}
+
 # Security group for monitoring instances
 resource "aws_security_group" "monitoring" {
   name        = "${var.environment}-monitoring-sg"
@@ -52,7 +58,7 @@ resource "aws_security_group" "monitoring" {
 resource "aws_ebs_volume" "monitoring" {
   count = var.volume_count
   
-  availability_zone = var.private_subnet_ids[count.index % length(var.private_subnet_ids)]
+  availability_zone = data.aws_subnet.selected[count.index % length(data.aws_subnet.selected)].availability_zone
   size              = var.ebs_volume_size
   type              = "gp3"
   encrypted         = true
@@ -61,6 +67,7 @@ resource "aws_ebs_volume" "monitoring" {
     Name = "${var.environment}-monitoring-data-${count.index + 1}"
   })
 }
+
 
 # CloudWatch Log Group for monitoring logs
 resource "aws_cloudwatch_log_group" "monitoring" {
