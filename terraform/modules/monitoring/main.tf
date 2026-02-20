@@ -118,6 +118,7 @@ resource "aws_ssm_parameter" "prometheus_endpoint" {
   name  = "/${var.environment}/monitoring/prometheus/endpoint"
   type  = "String"
   value = "prometheus.${var.environment}.internal:9090"
+   overwrite = true  # ADD THIS LINE
   
   tags = var.tags
 }
@@ -126,6 +127,7 @@ resource "aws_ssm_parameter" "grafana_endpoint" {
   name  = "/${var.environment}/monitoring/grafana/endpoint"
   type  = "String"
   value = "grafana.${var.environment}.internal:3000"
+   overwrite = true  # ADD THIS LINE
   
   tags = var.tags
 }
@@ -134,6 +136,7 @@ resource "aws_ssm_parameter" "alert_topic_arn" {
   name  = "/${var.environment}/monitoring/alerts/topic-arn"
   type  = "String"
   value = aws_sns_topic.alerts.arn
+   overwrite = true  # ADD THIS LINE
   
   tags = var.tags
 }
