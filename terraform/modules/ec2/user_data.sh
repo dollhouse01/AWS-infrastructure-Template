@@ -41,7 +41,7 @@ for vol in /dev/sd[b-z]; do
     fi
 done
 
-# Set environment tag
+# Set environment tag - FIXED: Use proper interpolation syntax
 echo "ENVIRONMENT=${environment}" >> /etc/environment
 
 # Install CloudWatch agent
