@@ -95,7 +95,6 @@ min.insync.replicas = ${var.period == "active" ? 2 : 1}
 num.partitions = ${var.period == "active" ? 6 : 3}
 log.retention.hours = ${var.period == "active" ? 168 : 24}
 log.segment.bytes = ${var.period == "active" ? 1073741824 : 268435456}
-log.retention.check.interval.ms = 300000
 zookeeper.connection.timeout.ms = 6000
 zookeeper.session.timeout.ms = 6000
 PROPERTIES
