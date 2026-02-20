@@ -53,3 +53,9 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "ssl_certificate_id" {
+  description = "SSL certificate ARN for HTTPS listener"
+  type        = string
+  default     = ""  # Empty default means HTTP only
+}
