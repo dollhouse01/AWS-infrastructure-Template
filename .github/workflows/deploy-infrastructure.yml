@@ -4,8 +4,24 @@ on:
   push:
     branches: [ main ]
   schedule:
-    - cron: '0 8 * * *'   # Check EVERY DAY at 8 AM
-  workflow_dispatch:        # Manual override if needed
+    - cron: '0 8 * * *'   # Daily at 8 AM
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        type: choice
+        options:
+          - deploy
+          - deploy-app
+          - start-campaign
+          - end-campaign
+          - archive-data
+      campaign_name:
+        description: 'Campaign name (for logging)'
+        required: false
+        type: string
+        default: 'general'
 
 env:
   AWS_REGION: af-south-1
@@ -21,24 +37,22 @@ jobs:
       - name: Check Current Month
         id: season-check
         run: |
-          # Get current month number (1-12)
           CURRENT_MONTH=$(date +%m)
           echo "Current month: $CURRENT_MONTH"
           
-          # SEASON LOGIC: May (5) to October (10) is ACTIVE
-          # November (11) to April (4) is IDLE
           if [ $CURRENT_MONTH -ge 5 ] && [ $CURRENT_MONTH -le 10 ]; then
             echo "🎯 ACTIVE SEASON: May-October"
             echo "should_be_active=true" >> $GITHUB_OUTPUT
             echo "season=ACTIVE" >> $GITHUB_OUTPUT
           else
-            echo "💤 IDLE SEASON: November-April"
+            echo "❄️ IDLE SEASON: November-April"
             echo "should_be_active=false" >> $GITHUB_OUTPUT
             echo "season=IDLE" >> $GITHUB_OUTPUT
           fi
 
-  apply-configuration:
+  deploy-infrastructure:
     needs: check-season
+    if: github.event.inputs.action == 'deploy' || github.event.inputs.action == 'start-campaign' || github.event.inputs.action == 'end-campaign' || github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -55,19 +69,103 @@ jobs:
         with:
           terraform_version: 1.5.0
       
-      - name: Check Current Terraform Setting
-        id: check-current
+      - name: Terraform Init
         run: |
           cd terraform/environments/prod
-          CURRENT=$(grep current_period terraform.tfvars | cut -d'=' -f2 | tr -d ' "')
-          echo "current_setting=$CURRENT" >> $GITHUB_OUTPUT
-          echo "Current Terraform setting: $CURRENT"
+          terraform init
       
-      - name: Apply ACTIVE Season Configuration (May-October)
-        if: needs.check-season.outputs.should_be_active == 'true' && steps.check-current.outputs.current_setting != 'active'
+      - name: Terraform Apply
         run: |
-          echo "🌞 ACTIVE SEASON DETECTED (May-October)"
-          echo "Scaling UP for campaign period..."
+          cd terraform/environments/prod
+          terraform apply -auto-approve
+      
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER || echo "Cluster not ready yet"
+  
+  deploy-application:
+    if: github.event.inputs.action == 'deploy-app' || github.event.inputs.action == 'start-campaign'
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER
+          kubectl get nodes
+      
+      - name: Create Namespace
+        run: |
+          kubectl apply -f kubernetes/digit/namespace.yaml
+      
+      - name: Deploy ConfigMap and Secrets
+        run: |
+          kubectl apply -f kubernetes/digit/configmap.yaml
+          kubectl apply -f kubernetes/digit/secrets.yaml
+          kubectl apply -f kubernetes/digit/service-account.yaml
+      
+      - name: Deploy PgBouncer
+        run: |
+          kubectl apply -f kubernetes/digit/pgbouncer.yaml
+          kubectl rollout status deployment/pgbouncer -n digit-hcm --timeout=120s
+      
+      - name: Deploy Backend
+        run: |
+          kubectl apply -f kubernetes/digit/deployments/backend.yaml
+          kubectl rollout status deployment/digit-hcm-backend -n digit-hcm --timeout=180s
+      
+      - name: Deploy Frontend
+        run: |
+          kubectl apply -f kubernetes/digit/deployments/frontend.yaml
+          kubectl rollout status deployment/digit-hcm-frontend -n digit-hcm --timeout=120s
+      
+      - name: Deploy Worker
+        run: |
+          kubectl apply -f kubernetes/digit/deployments/worker.yaml
+      
+      - name: Deploy Services
+        run: |
+          kubectl apply -f kubernetes/digit/services/
+      
+      - name: Deploy HPA
+        run: |
+          kubectl apply -f kubernetes/digit/hpa.yaml
+      
+      - name: Deploy Ingress
+        run: |
+          kubectl apply -f kubernetes/digit/ingress.yaml
+      
+      - name: Verify Deployment
+        run: |
+          kubectl get pods -n digit-hcm
+          kubectl get svc -n digit-hcm
+          echo "✅ Application deployed successfully!"
+
+  start-campaign:
+    if: github.event.inputs.action == 'start-campaign'
+    runs-on: ubuntu-latest
+    needs: deploy-infrastructure
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Start Campaign
+        run: |
+          echo "🎯 STARTING CAMPAIGN: ${{ github.event.inputs.campaign_name }}"
           
           # Update Terraform to active
           cd terraform/environments/prod
@@ -78,26 +176,29 @@ jobs:
           # Configure kubectl
           aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER
           
-          # Scale up deployments
+          # Scale up
           kubectl scale deployment -n digit-hcm digit-hcm-backend --replicas=5
           kubectl scale deployment -n digit-hcm digit-hcm-frontend --replicas=3
           kubectl scale deployment -n digit-hcm digit-hcm-worker --replicas=2
           
-          # Enable HPA
-          kubectl patch hpa -n digit-hcm digit-hcm-backend -p '{"spec":{"minReplicas":3}}'
-          
-          # Send notification
-          curl -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\"🌞 ACTIVE SEASON STARTED: Scaled up for May-October campaign period\"}" \
-            ${{ secrets.SLACK_WEBHOOK }} || true
-          
-          echo "✅ Active season configuration applied"
+          echo "✅ Campaign started: ${{ github.event.inputs.campaign_name }}"
+
+  end-campaign:
+    if: github.event.inputs.action == 'end-campaign'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
       
-      - name: Apply IDLE Season Configuration (November-April)
-        if: needs.check-season.outputs.should_be_active == 'false' && steps.check-current.outputs.current_setting != 'idle'
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: End Campaign
         run: |
-          echo "❄️ IDLE SEASON DETECTED (November-April)"
-          echo "Scaling DOWN for off-season..."
+          echo "🏁 ENDING CAMPAIGN: ${{ github.event.inputs.campaign_name }}"
           
           # Update Terraform to idle
           cd terraform/environments/prod
@@ -108,27 +209,38 @@ jobs:
           # Configure kubectl
           aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER
           
-          # Scale down deployments
+          # Scale down
           kubectl scale deployment -n digit-hcm digit-hcm-backend --replicas=1
           kubectl scale deployment -n digit-hcm digit-hcm-frontend --replicas=1
           kubectl scale deployment -n digit-hcm digit-hcm-worker --replicas=0
           
-          # Update HPA
-          kubectl patch hpa -n digit-hcm digit-hcm-backend -p '{"spec":{"minReplicas":1}}'
-          
-          # Send notification
-          curl -X POST -H 'Content-type: application/json' \
-            --data "{\"text\":\"❄️ IDLE SEASON STARTED: Scaled down for November-April off-season\"}" \
-            ${{ secrets.SLACK_WEBHOOK }} || true
-          
-          echo "✅ Idle season configuration applied"
+          echo "✅ Campaign ended: ${{ github.event.inputs.campaign_name }}"
+
+  archive-data:
+    if: github.event.inputs.action == 'archive-data'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
       
-      - name: No Change Needed
-        if: needs.check-season.outputs.should_be_active == 'true' && steps.check-current.outputs.current_setting == 'active'
-        run: |
-          echo "✅ Already in ACTIVE season configuration - no changes needed"
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
       
-      - name: No Change Needed
-        if: needs.check-season.outputs.should_be_active == 'false' && steps.check-current.outputs.current_setting == 'idle'
+      - name: Archive Old Data
         run: |
-          echo "✅ Already in IDLE season configuration - no changes needed"
+          echo "📦 Archiving data older than 1 year"
+          
+          # Configure kubectl
+          aws eks update-kubeconfig --region $AWS_REGION --name $EKS_CLUSTER
+          
+          # Run archive command
+          kubectl exec deployment/pgbouncer -n digit-hcm -- psql <<EOF || echo "Database not ready yet"
+          CREATE TABLE IF NOT EXISTS attendance_archive (LIKE attendance INCLUDING ALL);
+          INSERT INTO attendance_archive SELECT * FROM attendance WHERE date < CURRENT_DATE - INTERVAL '1 year';
+          DELETE FROM attendance WHERE date < CURRENT_DATE - INTERVAL '1 year';
+          VACUUM ANALYZE attendance;
+          EOF
+          echo "✅ Archive completed"

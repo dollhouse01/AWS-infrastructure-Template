@@ -21,9 +21,15 @@ jobs:
       - name: Weekly Cost Report
         run: |
           END_DATE=$(date +%Y-%m-%d)
+<<<<<<< HEAD
           START_DATE=$(date -d '7 days ago' +%Y-%m-%d)  # FIXED: removed extra quote
           
           echo "📊 Generating cost report for $START_DATE to $END_DATE"
+=======
+          START_DATE=$(date -d '7 days ago' +%Y-%m-%d)   # FIXED: removed extra quote
+          
+          echo "📊 Weekly Cost Report: $START_DATE to $END_DATE"
+>>>>>>> 0f515cb4bb89836e36dac4a8ef1d46a78b839cb7
           
           COST=$(aws ce get-cost-and-usage \
             --time-period Start=$START_DATE,End=$END_DATE \
@@ -32,15 +38,27 @@ jobs:
             --query "ResultsByTime[0].Total.UnblendedCost.Amount" \
             --output text)
           
+<<<<<<< HEAD
           echo "Weekly Cost: \$$COST"
           
           # Send to Slack (only if webhook is configured)
+=======
+          echo "Total Cost: \$$COST"
+          
+          # Send to Slack only if webhook is configured
+>>>>>>> 0f515cb4bb89836e36dac4a8ef1d46a78b839cb7
           SLACK_WEBHOOK="${{ secrets.SLACK_WEBHOOK_URL }}"
           if [ -n "$SLACK_WEBHOOK" ]; then
             curl -X POST -H 'Content-type: application/json' \
               --data "{\"text\":\"📊 Weekly Cost Report: \$$COST\nPeriod: $START_DATE to $END_DATE\"}" \
               $SLACK_WEBHOOK
+<<<<<<< HEAD
             echo "✅ Slack notification sent"
           else
             echo "⚠️ Slack webhook not configured - skipping notification"
           fi
+=======
+          else
+            echo "Slack webhook not configured - skipping notification"
+          fi
+>>>>>>> 0f515cb4bb89836e36dac4a8ef1d46a78b839cb7

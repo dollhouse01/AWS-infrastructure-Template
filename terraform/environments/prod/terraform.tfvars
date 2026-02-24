@@ -21,6 +21,3 @@ database_username = "digithcm_admin"
 # Networking
 vpc_cidr          = "10.2.0.0/16"
 availability_zones = ["af-south-1a", "af-south-1b"]
-
-# Instance Types (auto-adjusted by period)
-# Active: r6i.4xlarge, Idle: t3.xlarge

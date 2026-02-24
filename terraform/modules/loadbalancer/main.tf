@@ -47,13 +47,17 @@ resource "aws_elb" "main" {
     lb_protocol       = "http"
   }
   
-  listener {
+# HTTPS listener - only create if SSL certificate is provided
+dynamic "listener" {
+  for_each = var.ssl_certificate_id != "" ? [1] : []
+  content {
     instance_port      = 443
     instance_protocol  = "https"
     lb_port            = 443
     lb_protocol        = "https"
     ssl_certificate_id = var.ssl_certificate_id
   }
+}
   
   health_check {
     healthy_threshold   = 2

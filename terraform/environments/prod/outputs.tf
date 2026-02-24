@@ -82,4 +82,5 @@ output "load_balancer_security_group_id" {
 output "monitoring_endpoints" {
   description = "Monitoring endpoints"
   value       = module.monitoring.endpoints
+  sensitive   = true  # Add this line
 }
