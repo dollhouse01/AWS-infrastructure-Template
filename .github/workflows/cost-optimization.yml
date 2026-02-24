@@ -2,7 +2,7 @@ name: Cost Optimization
 
 on:
   schedule:
-    - cron: '0 10 * * 1'   # Monday 10 AM - Weekly report
+    - cron: '0 10 * * 1'   # Monday 10 AM
   workflow_dispatch:
 
 jobs:
@@ -16,12 +16,14 @@ jobs:
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: us-east-1  # Billing is in us-east-1
+          aws-region: us-east-1
       
       - name: Weekly Cost Report
         run: |
           END_DATE=$(date +%Y-%m-%d)
-          START_DATE=$(date -d '7 days ago' +%Y-%m-%d')
+          START_DATE=$(date -d '7 days ago' +%Y-%m-%d)  # FIXED: removed extra quote
+          
+          echo "📊 Generating cost report for $START_DATE to $END_DATE"
           
           COST=$(aws ce get-cost-and-usage \
             --time-period Start=$START_DATE,End=$END_DATE \
@@ -30,30 +32,15 @@ jobs:
             --query "ResultsByTime[0].Total.UnblendedCost.Amount" \
             --output text)
           
-          # Send to Slack (optional)
-          if [ -n "${{ secrets.SLACK_WEBHOOK }}" ]; then
+          echo "Weekly Cost: \$$COST"
+          
+          # Send to Slack (only if webhook is configured)
+          SLACK_WEBHOOK="${{ secrets.SLACK_WEBHOOK_URL }}"
+          if [ -n "$SLACK_WEBHOOK" ]; then
             curl -X POST -H 'Content-type: application/json' \
               --data "{\"text\":\"📊 Weekly Cost Report: \$$COST\nPeriod: $START_DATE to $END_DATE\"}" \
-              ${{ secrets.SLACK_WEBHOOK }}
-          fi
-      
-      - name: Check Budget Alert
-        run: |
-          # Check if we're approaching monthly budget
-          MONTH_START=$(date +%Y-%m-01)
-          MONTH_END=$(date +%Y-%m-%d)
-          
-          COST_MTD=$(aws ce get-cost-and-usage \
-            --time-period Start=$MONTH_START,End=$MONTH_END \
-            --granularity MONTHLY \
-            --metrics UnblendedCost \
-            --query "ResultsByTime[0].Total.UnblendedCost.Amount" \
-            --output text)
-          
-          BUDGET=4200
-          PERCENTAGE=$(echo "scale=2; $COST_MTD * 100 / $BUDGET" | bc)
-          
-          if (( $(echo "$PERCENTAGE > 80" | bc -l) )); then
-            echo "⚠️ Warning: Used $PERCENTAGE% of monthly budget"
-            # Send alert (configure SNS in Terraform)
+              $SLACK_WEBHOOK
+            echo "✅ Slack notification sent"
+          else
+            echo "⚠️ Slack webhook not configured - skipping notification"
           fi
