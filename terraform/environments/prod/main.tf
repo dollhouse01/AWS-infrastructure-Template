@@ -65,8 +65,8 @@ module "eks" {
       desired_size       = local.is_active_period ? 2 : 1
       min_size          = 1
       max_size          = local.is_active_period ? 5 : 2
-      instance_types    = ["r6i.4xlarge"]
-      spot_instance_types = ["r6i.4xlarge", "m6i.4xlarge", "c6i.4xlarge"]
+      instance_types    = ["t3.micro"]
+      spot_instance_types = ["t3.micro", "t2.micro", "t3.micro"]
       capacity_type     = "SPOT"
       use_spot          = var.use_spot_instances
       k8s_labels = {
@@ -80,7 +80,7 @@ module "eks" {
       desired_size       = local.is_active_period ? 1 : 1
       min_size          = 1
       max_size          = 2
-      instance_types    = ["r6i.4xlarge"]
+      instance_types    = [t3.micro"]
       spot_instance_types = []
       capacity_type     = "ON_DEMAND"
       use_spot          = false
@@ -102,7 +102,7 @@ module "rds" {
   vpc_id             = module.networking.vpc_id
   private_subnet_ids = module.networking.private_subnet_ids
   
-  instance_class      = local.is_active_period ? "db.m6g.2xlarge" : "db.m6g.xlarge"
+  instance_class      = local.is_active_period ? "t3.micro" : "t2.micro"
   allocated_storage   = local.is_active_period ? 100 : 50
   storage_type        = "gp3"
   
@@ -158,7 +158,7 @@ module "ec2" {
   vpc_id             = module.networking.vpc_id
   public_subnet_ids  = module.networking.public_subnet_ids
   
-  instance_type      = local.is_active_period ? "r6i.4xlarge" : "t3.xlarge"
+  instance_type      = local.is_active_period ? "t3.micro" : "t2.micro"
   instance_count     = local.is_active_period ? 3 : 1
   
   ebs_volumes = {
