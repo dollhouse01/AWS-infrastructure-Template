@@ -13,13 +13,13 @@ variable "environment" {
 variable "active_start_date" {
   description = "Start of active period (format: YYYY-MM-DD)"
   type        = string
-  default     = "2024-06-01"
+  default     = "2026-03-01"
 }
 
 variable "active_end_date" {
   description = "End of active period (format: YYYY-MM-DD)"
   type        = string
-  default     = "2024-10-15"
+  default     = "2026-10-15"
 }
 
 variable "use_spot_instances" {
